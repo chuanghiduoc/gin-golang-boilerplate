@@ -1,0 +1,53 @@
+{
+  "common": {
+    "success": "Thành công",
+    "error": "Lỗi",
+    "not_found": "Không tìm thấy tài nguyên",
+    "bad_request": "Yêu cầu không hợp lệ",
+    "unauthorized": "Chưa xác thực",
+    "forbidden": "Không có quyền truy cập",
+    "internal_error": "Lỗi máy chủ nội bộ",
+    "validation_error": "Lỗi xác thực dữ liệu"
+  },
+  "auth": {
+    "invalid_credentials": "Email hoặc mật khẩu không đúng",
+    "token_required": "Yêu cầu token xác thực",
+    "token_invalid": "Token không hợp lệ hoặc đã hết hạn",
+    "token_format_invalid": "Định dạng header xác thực không hợp lệ",
+    "register_success": "Đăng ký thành công",
+    "login_success": "Đăng nhập thành công",
+    "email_exists": "Email đã được đăng ký",
+    "password_min_length": "Mật khẩu phải có ít nhất 8 ký tự"
+  },
+  "user": {
+    "not_found": "Không tìm thấy người dùng",
+    "created": "Tạo người dùng thành công",
+    "updated": "Cập nhật người dùng thành công",
+    "deleted": "Xóa người dùng thành công",
+    "email_required": "Email là bắt buộc",
+    "email_invalid": "Định dạng email không hợp lệ",
+    "name_required": "Tên là bắt buộc",
+    "name_min_length": "Tên phải có ít nhất 2 ký tự",
+    "name_max_length": "Tên không được vượt quá 100 ký tự"
+  },
+  "role": {
+    "admin_required": "Yêu cầu quyền quản trị viên",
+    "insufficient_permissions": "Không đủ quyền truy cập"
+  },
+  "file": {
+    "upload_success": "Tải file lên thành công",
+    "upload_failed": "Tải file lên thất bại",
+    "not_found": "Không tìm thấy file",
+    "deleted": "Xóa file thành công",
+    "invalid_type": "Loại file không hợp lệ",
+    "size_exceeded": "Kích thước file vượt quá giới hạn",
+    "empty_file": "File trống"
+  },
+  "validation": {
+    "required": "{{field}} là bắt buộc",
+    "min_length": "{{field}} phải có ít nhất {{min}} ký tự",
+    "max_length": "{{field}} không được vượt quá {{max}} ký tự",
+    "email": "{{field}} phải là email hợp lệ",
+    "uuid": "{{field}} phải là UUID hợp lệ"
+  }
+}

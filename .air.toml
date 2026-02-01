@@ -1,0 +1,55 @@
+# Air - Live reload for Go apps
+# Install: go install github.com/air-verse/air@latest
+# Run: air
+
+root = "."
+tmp_dir = "tmp"
+
+[build]
+# Command to build the application
+cmd = "go build -o ./tmp/main.exe ./cmd/api"
+# Binary output
+bin = "./tmp/main.exe"
+# Watch these file extensions
+include_ext = ["go", "tpl", "tmpl", "html", "yaml", "yml", "json"]
+# Exclude directories
+exclude_dir = ["assets", "tmp", "vendor", "node_modules", "docs", "db"]
+# Exclude files
+exclude_file = []
+# Exclude regex patterns
+exclude_regex = ["_test.go"]
+# Exclude unchanged files
+exclude_unchanged = true
+# Follow symlinks
+follow_symlink = false
+# Delay before restarting (ms)
+delay = 1000
+# Stop running old binary when build error occurs
+stop_on_error = true
+# Send SIGKILL instead of SIGTERM
+send_interrupt = false
+# Delay before sending SIGKILL (s)
+kill_delay = 500
+
+[log]
+# Show log time
+time = true
+# Only show main logs
+main_only = false
+
+[color]
+# Colorize output
+main = "magenta"
+watcher = "cyan"
+build = "yellow"
+runner = "green"
+
+[misc]
+# Delete tmp directory on exit
+clean_on_exit = true
+
+[screen]
+# Keep scroll position
+clear_on_rebuild = true
+# Keep track
+keep_scroll = true

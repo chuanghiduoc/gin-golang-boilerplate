@@ -1,0 +1,53 @@
+{
+  "common": {
+    "success": "Success",
+    "error": "Error",
+    "not_found": "Resource not found",
+    "bad_request": "Bad request",
+    "unauthorized": "Unauthorized",
+    "forbidden": "Forbidden",
+    "internal_error": "Internal server error",
+    "validation_error": "Validation error"
+  },
+  "auth": {
+    "invalid_credentials": "Invalid email or password",
+    "token_required": "Authorization token required",
+    "token_invalid": "Invalid or expired token",
+    "token_format_invalid": "Invalid authorization header format",
+    "register_success": "Registration successful",
+    "login_success": "Login successful",
+    "email_exists": "Email already registered",
+    "password_min_length": "Password must be at least 8 characters"
+  },
+  "user": {
+    "not_found": "User not found",
+    "created": "User created successfully",
+    "updated": "User updated successfully",
+    "deleted": "User deleted successfully",
+    "email_required": "Email is required",
+    "email_invalid": "Invalid email format",
+    "name_required": "Name is required",
+    "name_min_length": "Name must be at least 2 characters",
+    "name_max_length": "Name must not exceed 100 characters"
+  },
+  "role": {
+    "admin_required": "Admin role required",
+    "insufficient_permissions": "Insufficient permissions"
+  },
+  "file": {
+    "upload_success": "File uploaded successfully",
+    "upload_failed": "File upload failed",
+    "not_found": "File not found",
+    "deleted": "File deleted successfully",
+    "invalid_type": "Invalid file type",
+    "size_exceeded": "File size exceeds the limit",
+    "empty_file": "File is empty"
+  },
+  "validation": {
+    "required": "{{field}} is required",
+    "min_length": "{{field}} must be at least {{min}} characters",
+    "max_length": "{{field}} must not exceed {{max}} characters",
+    "email": "{{field}} must be a valid email",
+    "uuid": "{{field}} must be a valid UUID"
+  }
+}
