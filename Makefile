@@ -1,4 +1,4 @@
-.PHONY: build run test clean docker-build docker-up docker-down migrate-up migrate-down migrate-create sqlc swagger lint help dev dev-setup dev-docker
+.PHONY: build run test clean docker-build docker-up docker-down migrate-up migrate-down migrate-create sqlc swagger lint help dev dev-setup dev-docker version version-patch version-minor version-major release
 
 # Go parameters
 GOCMD=go
@@ -11,13 +11,19 @@ GOFMT=$(GOCMD) fmt
 API_BINARY=bin/api
 MIGRATE_BINARY=bin/migrate
 
+# Version info
+VERSION=$(shell grep 'Version.*=' cmd/api/version.go | sed 's/.*"\(.*\)"/\1/')
+GIT_COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_TIME=$(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
+LDFLAGS=-ldflags "-X main.Version=$(VERSION) -X main.GitCommit=$(GIT_COMMIT) -X main.BuildTime=$(BUILD_TIME) -w -s"
+
 # Default target
 .DEFAULT_GOAL := help
 
 ## Build commands
 build: ## Build the API binary
-	$(GOBUILD) -o $(API_BINARY) ./cmd/api
-	$(GOBUILD) -o $(MIGRATE_BINARY) ./cmd/migrate
+	$(GOBUILD) $(LDFLAGS) -o $(API_BINARY) ./cmd/api
+	$(GOBUILD) $(LDFLAGS) -o $(MIGRATE_BINARY) ./cmd/migrate
 
 run: ## Run the API server locally
 	$(GOCMD) run ./cmd/api
@@ -99,6 +105,47 @@ dev-setup: ## Install development tools (air, sqlc, swag, migrate, golangci-lint
 
 dev-docker: ## Run development with Docker (PostgreSQL + hot reload)
 	docker-compose -f docker-compose.dev.yml up
+
+## Version management
+version: ## Show current version
+	@echo "Version: $(VERSION)"
+	@echo "Commit:  $(GIT_COMMIT)"
+
+version-patch: ## Bump patch version (1.0.0 -> 1.0.1)
+	@bash scripts/bump-version.sh patch
+
+version-minor: ## Bump minor version (1.0.0 -> 1.1.0)
+	@bash scripts/bump-version.sh minor
+
+version-major: ## Bump major version (1.0.0 -> 2.0.0)
+	@bash scripts/bump-version.sh major
+
+release: ## Create a new release (bump patch, commit, tag, push)
+	@bash scripts/bump-version.sh patch
+	@NEW_VERSION=$$(grep 'Version.*=' cmd/api/version.go | sed 's/.*"\(.*\)"/\1/'); \
+	git add cmd/api/version.go; \
+	git commit -m "chore: release v$$NEW_VERSION"; \
+	git tag -a "v$$NEW_VERSION" -m "Release v$$NEW_VERSION"; \
+	git push && git push --tags; \
+	echo "✅ Released v$$NEW_VERSION"
+
+release-minor: ## Create a minor release
+	@bash scripts/bump-version.sh minor
+	@NEW_VERSION=$$(grep 'Version.*=' cmd/api/version.go | sed 's/.*"\(.*\)"/\1/'); \
+	git add cmd/api/version.go; \
+	git commit -m "chore: release v$$NEW_VERSION"; \
+	git tag -a "v$$NEW_VERSION" -m "Release v$$NEW_VERSION"; \
+	git push && git push --tags; \
+	echo "✅ Released v$$NEW_VERSION"
+
+release-major: ## Create a major release
+	@bash scripts/bump-version.sh major
+	@NEW_VERSION=$$(grep 'Version.*=' cmd/api/version.go | sed 's/.*"\(.*\)"/\1/'); \
+	git add cmd/api/version.go; \
+	git commit -m "chore: release v$$NEW_VERSION"; \
+	git tag -a "v$$NEW_VERSION" -m "Release v$$NEW_VERSION"; \
+	git push && git push --tags; \
+	echo "✅ Released v$$NEW_VERSION"
 
 ## Help
 help: ## Display this help

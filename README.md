@@ -214,6 +214,8 @@ backend-gin/
 │   ├── queries/                 # SQLC query files
 │   └── sqlc/                    # Generated code
 ├── docs/                        # Swagger documentation
+├── scripts/                     # Utility scripts
+│   └── bump-version.sh          # Version bump script
 ├── .air.toml                    # Hot reload config
 ├── Dockerfile                   # Optimized multi-stage build
 ├── docker-compose.yml           # Production compose
@@ -256,6 +258,15 @@ make lint               # Run linter
 make fmt                # Format code
 make swagger            # Generate Swagger docs
 make tidy               # Tidy dependencies
+
+# Version Management
+make version            # Show current version
+make version-patch      # Bump patch (1.0.0 -> 1.0.1)
+make version-minor      # Bump minor (1.0.0 -> 1.1.0)
+make version-major      # Bump major (1.0.0 -> 2.0.0)
+make release            # Release patch (bump + commit + tag + push)
+make release-minor      # Release minor
+make release-major      # Release major
 ```
 
 ## Configuration

@@ -27,6 +27,7 @@ type Router struct {
 	log             *logger.Logger
 	mode            string
 	uploadPath      string
+	version         string
 }
 
 func NewRouter(
@@ -41,6 +42,7 @@ func NewRouter(
 	log *logger.Logger,
 	mode string,
 	uploadPath string,
+	version string,
 ) *Router {
 	gin.SetMode(mode)
 	engine := gin.New()
@@ -58,6 +60,7 @@ func NewRouter(
 		log:             log,
 		mode:            mode,
 		uploadPath:      uploadPath,
+		version:         version,
 	}
 }
 
@@ -85,7 +88,7 @@ func (r *Router) Setup() *gin.Engine {
 	r.engine.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"name":    "Backend Gin API",
-			"version": "1.0.0",
+			"version": r.version,
 			"health":  "/health",
 			"docs":    "/swagger/index.html",
 		})

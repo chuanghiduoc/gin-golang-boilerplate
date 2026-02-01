@@ -162,6 +162,7 @@ func initializeApp(pool *pgxpool.Pool, cfg *config.Config, log *logger.Logger, s
 		log,
 		cfg.Server.Mode,
 		cfg.Storage.Local.BasePath,
+		Version,
 	)
 
 	return router
