@@ -20,8 +20,12 @@ Production-ready Gin boilerplate following Clean Architecture principles.
 ```
 backend-gin/
 ├── cmd/                         # Application entrypoints
-│   ├── api/main.go              # HTTP server
+│   ├── api/
+│   │   ├── main.go              # HTTP server
+│   │   └── version.go           # Version info (injected at build)
 │   └── migrate/main.go          # Migration CLI
+├── scripts/                     # Utility scripts
+│   └── bump-version.sh          # Semver bump script
 ├── internal/                    # Private application code
 │   ├── domain/                  # Layer 1: Domain (innermost)
 │   │   ├── entity/              # Business entities
@@ -235,6 +239,15 @@ make docker-logs      # View logs
 make lint             # Run linter
 make fmt              # Format code
 make test             # Run tests
+
+# Version Management
+make version          # Show current version
+make version-patch    # Bump patch (1.0.0 -> 1.0.1)
+make version-minor    # Bump minor (1.0.0 -> 1.1.0)
+make version-major    # Bump major (1.0.0 -> 2.0.0)
+make release          # Release patch (bump + commit + tag + push)
+make release-minor    # Release minor version
+make release-major    # Release major version
 ```
 
 ## Environment Variables
