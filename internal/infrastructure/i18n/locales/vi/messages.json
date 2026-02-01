@@ -26,6 +26,7 @@
     "deleted": "Xóa người dùng thành công",
     "email_required": "Email là bắt buộc",
     "email_invalid": "Định dạng email không hợp lệ",
+    "email_exists": "Email đã tồn tại",
     "name_required": "Tên là bắt buộc",
     "name_min_length": "Tên phải có ít nhất 2 ký tự",
     "name_max_length": "Tên không được vượt quá 100 ký tự"
@@ -41,7 +42,9 @@
     "deleted": "Xóa file thành công",
     "invalid_type": "Loại file không hợp lệ",
     "size_exceeded": "Kích thước file vượt quá giới hạn",
-    "empty_file": "File trống"
+    "empty_file": "File trống",
+    "content_mismatch": "Nội dung file không khớp với loại khai báo (khai báo: {{claimed}}, phát hiện: {{detected}})",
+    "delete_own_only": "Bạn chỉ có thể xóa file của chính mình"
   },
   "validation": {
     "required": "{{field}} là bắt buộc",

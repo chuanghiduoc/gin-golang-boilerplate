@@ -1,9 +1,15 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
+)
+
+const (
+	defaultJWTSecret = "your-super-secret-key-change-in-production"
 )
 
 type Config struct {
@@ -14,6 +20,8 @@ type Config struct {
 	RateLimit RateLimitConfig
 	Log       LogConfig
 	Storage   StorageConfig
+	Security  SecurityConfig
+	File      FileConfig
 }
 
 type ServerConfig struct {
@@ -49,6 +57,15 @@ type JWTConfig struct {
 	AccessExpiration     time.Duration
 	RefreshExpiration    time.Duration
 	RefreshTokenLength   int
+}
+
+type SecurityConfig struct {
+	BcryptCost int
+}
+
+type FileConfig struct {
+	MaxSize          int64
+	AllowedMimeTypes []string
 }
 
 type RateLimitConfig struct {
@@ -120,10 +137,17 @@ func Load() *Config {
 			Enabled:      getEnvAsBool("REDIS_ENABLED", true),
 		},
 		JWT: JWTConfig{
-			Secret:             getEnv("JWT_SECRET", "your-super-secret-key-change-in-production"),
+			Secret:             getEnv("JWT_SECRET", defaultJWTSecret),
 			AccessExpiration:   time.Duration(getEnvAsInt("JWT_ACCESS_EXPIRATION_MINUTES", 15)) * time.Minute,
 			RefreshExpiration:  time.Duration(getEnvAsInt("JWT_REFRESH_EXPIRATION_DAYS", 7)) * 24 * time.Hour,
 			RefreshTokenLength: getEnvAsInt("JWT_REFRESH_TOKEN_LENGTH", 64),
+		},
+		Security: SecurityConfig{
+			BcryptCost: getEnvAsInt("BCRYPT_COST", 10),
+		},
+		File: FileConfig{
+			MaxSize:          getEnvAsInt64("FILE_MAX_SIZE", 10*1024*1024), // 10MB default
+			AllowedMimeTypes: getEnvAsSlice("FILE_ALLOWED_TYPES", "image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,text/csv,application/json,application/xml,application/zip"),
 		},
 		RateLimit: RateLimitConfig{
 			Enabled:     getEnvAsBool("RATE_LIMIT_ENABLED", true),
@@ -189,4 +213,58 @@ func getEnvAsBool(key string, defaultValue bool) bool {
 		return defaultValue
 	}
 	return value
+}
+
+func getEnvAsInt64(key string, defaultValue int64) int64 {
+	valueStr := getEnv(key, "")
+	if value, err := strconv.ParseInt(valueStr, 10, 64); err == nil {
+		return value
+	}
+	return defaultValue
+}
+
+func getEnvAsSlice(key, defaultValue string) []string {
+	valueStr := getEnv(key, defaultValue)
+	if valueStr == "" {
+		return []string{}
+	}
+	parts := strings.Split(valueStr, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
+}
+
+// Validate checks configuration for security issues
+// Returns error if critical security configuration is invalid
+func (c *Config) Validate() error {
+	// In release mode, JWT secret must be changed from default
+	if c.Server.Mode == "release" {
+		if c.JWT.Secret == defaultJWTSecret {
+			return fmt.Errorf("SECURITY ERROR: JWT_SECRET must be changed from default value in production")
+		}
+		if len(c.JWT.Secret) < 32 {
+			return fmt.Errorf("SECURITY ERROR: JWT_SECRET must be at least 32 characters in production")
+		}
+	}
+
+	// Validate bcrypt cost
+	if c.Security.BcryptCost < 4 || c.Security.BcryptCost > 31 {
+		return fmt.Errorf("BCRYPT_COST must be between 4 and 31")
+	}
+
+	// Validate file max size (1KB to 1GB)
+	if c.File.MaxSize < 1024 || c.File.MaxSize > 1024*1024*1024 {
+		return fmt.Errorf("FILE_MAX_SIZE must be between 1KB and 1GB")
+	}
+
+	return nil
+}
+
+// IsProduction returns true if running in release mode
+func (c *Config) IsProduction() bool {
+	return c.Server.Mode == "release"
 }

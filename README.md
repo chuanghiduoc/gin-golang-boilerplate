@@ -287,9 +287,17 @@ Copy `.env.example` to `.env` and configure:
 | `DB_NAME` | Database name | backend_gin |
 | `REDIS_HOST` | Redis host | localhost |
 | `REDIS_PORT` | Redis port | 6379 |
-| `JWT_SECRET` | JWT signing secret | (required) |
+| `JWT_SECRET` | JWT signing secret | (required in production) |
 | `JWT_ACCESS_EXPIRATION_MINUTES` | Access token expiration | 15 |
+| `BCRYPT_COST` | Bcrypt hashing cost (4-31) | 10 |
+| `FILE_MAX_SIZE` | Max upload file size in bytes | 10485760 (10MB) |
+| `FILE_ALLOWED_TYPES` | Allowed MIME types (comma-separated) | image/jpeg,image/png,... |
 | `STORAGE_DRIVER` | Storage driver (local/s3/r2) | local |
+
+**Security Notes:**
+- `JWT_SECRET` must be changed from default in production (release mode)
+- `JWT_SECRET` must be at least 32 characters in production
+- Swagger UI is automatically disabled in release mode
 
 ## i18n (Internationalization)
 

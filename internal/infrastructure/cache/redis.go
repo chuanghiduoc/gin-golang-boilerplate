@@ -104,3 +104,8 @@ func (r *RedisClient) Keys(ctx context.Context, pattern string) ([]string, error
 func (r *RedisClient) FlushDB(ctx context.Context) error {
 	return r.client.FlushDB(ctx).Err()
 }
+
+// Ping checks the Redis connection health
+func (r *RedisClient) Ping(ctx context.Context) error {
+	return r.client.Ping(ctx).Err()
+}

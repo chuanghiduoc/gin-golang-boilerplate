@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"backend-gin/db/sqlc"
@@ -119,4 +120,36 @@ func toFileEntities(files []sqlc.File) []*entity.File {
 		entities[i] = toFileEntity(&f)
 	}
 	return entities
+}
+
+func (r *fileRepository) BeginTx(ctx context.Context) (pgx.Tx, error) {
+	return r.pool.Begin(ctx)
+}
+
+func (r *fileRepository) CreateTx(ctx context.Context, tx pgx.Tx, file *entity.File) (*entity.File, error) {
+	var url *string
+	if file.URL != "" {
+		url = &file.URL
+	}
+
+	queries := r.queries.WithTx(tx)
+	result, err := queries.CreateFile(ctx, sqlc.CreateFileParams{
+		UserID:        file.UserID,
+		Filename:      file.Filename,
+		OriginalName:  file.OriginalName,
+		MimeType:      file.MimeType,
+		Size:          file.Size,
+		StorageDriver: string(file.StorageDriver),
+		StoragePath:   file.StoragePath,
+		URL:           url,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return toFileEntity(&result), nil
+}
+
+func (r *fileRepository) DeleteTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
+	queries := r.queries.WithTx(tx)
+	return queries.DeleteFile(ctx, id)
 }

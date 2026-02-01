@@ -13,28 +13,12 @@ import (
 
 	"backend-gin/internal/domain/entity"
 	"backend-gin/internal/domain/repository"
+	"backend-gin/internal/infrastructure/config"
 	"backend-gin/internal/infrastructure/storage"
 	"backend-gin/pkg/apperror"
+	"backend-gin/pkg/filetype"
+	"backend-gin/pkg/pagination"
 )
-
-var allowedMimeTypes = map[string]bool{
-	"image/jpeg":      true,
-	"image/png":       true,
-	"image/gif":       true,
-	"image/webp":      true,
-	"application/pdf": true,
-	"text/plain":      true,
-	"text/csv":        true,
-	"application/json": true,
-	"application/xml":  true,
-	"application/zip":  true,
-	"application/msword": true,
-	"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
-	"application/vnd.ms-excel": true,
-	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": true,
-}
-
-const maxFileSize = 10 * 1024 * 1024 // 10MB
 
 type Service interface {
 	Upload(ctx context.Context, userID uuid.UUID, file *multipart.FileHeader, path string) (*FileResponse, error)
@@ -45,29 +29,52 @@ type Service interface {
 }
 
 type service struct {
-	fileRepo       repository.FileRepository
-	storageManager *storage.Manager
+	fileRepo         repository.FileRepository
+	storageManager   *storage.Manager
+	maxFileSize      int64
+	allowedMimeTypes map[string]bool
 }
 
-func NewService(fileRepo repository.FileRepository, storageManager *storage.Manager) Service {
+func NewService(fileRepo repository.FileRepository, storageManager *storage.Manager, cfg config.FileConfig) Service {
+	// Build allowed mime types map
+	allowedTypes := make(map[string]bool)
+	for _, t := range cfg.AllowedMimeTypes {
+		allowedTypes[t] = true
+	}
+
 	return &service{
-		fileRepo:       fileRepo,
-		storageManager: storageManager,
+		fileRepo:         fileRepo,
+		storageManager:   storageManager,
+		maxFileSize:      cfg.MaxSize,
+		allowedMimeTypes: allowedTypes,
 	}
 }
 
 func (s *service) Upload(ctx context.Context, userID uuid.UUID, file *multipart.FileHeader, path string) (*FileResponse, error) {
 	if file.Size == 0 {
-		return nil, apperror.BadRequest("file is empty")
+		return nil, apperror.BadRequestI18n("file.empty_file")
 	}
 
-	if file.Size > maxFileSize {
-		return nil, apperror.BadRequest("file size exceeds the limit")
+	if file.Size > s.maxFileSize {
+		return nil, apperror.BadRequestI18n("file.size_exceeded")
 	}
 
-	mimeType := file.Header.Get("Content-Type")
-	if !allowedMimeTypes[mimeType] {
-		return nil, apperror.BadRequest("invalid file type")
+	// Get claimed MIME type from header
+	claimedMimeType := file.Header.Get("Content-Type")
+	if !s.allowedMimeTypes[claimedMimeType] {
+		return nil, apperror.BadRequestI18n("file.invalid_type")
+	}
+
+	// Validate actual content matches claimed type (security: prevent MIME type spoofing)
+	valid, detectedType, err := filetype.ValidateContent(file, claimedMimeType)
+	if err != nil {
+		return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to validate file content")
+	}
+	if !valid {
+		return nil, apperror.BadRequestI18nWithParams("file.content_mismatch", map[string]string{
+			"claimed":  claimedMimeType,
+			"detected": detectedType,
+		})
 	}
 
 	if path == "" {
@@ -76,6 +83,18 @@ func (s *service) Upload(ctx context.Context, userID uuid.UUID, file *multipart.
 	path = filepath.Clean(path)
 	path = strings.TrimPrefix(path, "/")
 
+	// Begin transaction
+	tx, err := s.fileRepo.BeginTx(ctx)
+	if err != nil {
+		return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to begin transaction")
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
+	// Upload to storage
 	storageDriver := s.storageManager.Default()
 	result, err := storageDriver.Upload(ctx, file, path)
 	if err != nil {
@@ -93,10 +112,19 @@ func (s *service) Upload(ctx context.Context, userID uuid.UUID, file *multipart.
 		URL:           result.URL,
 	}
 
-	createdFile, err := s.fileRepo.Create(ctx, fileEntity)
+	// Create DB record within transaction
+	createdFile, err := s.fileRepo.CreateTx(ctx, tx, fileEntity)
 	if err != nil {
+		// Rollback: delete uploaded file from storage
 		_ = storageDriver.Delete(ctx, result.StoragePath)
 		return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to save file record")
+	}
+
+	// Commit transaction
+	if err = tx.Commit(ctx); err != nil {
+		// Rollback: delete uploaded file from storage
+		_ = storageDriver.Delete(ctx, result.StoragePath)
+		return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to commit transaction")
 	}
 
 	return ToFileResponse(createdFile), nil
@@ -106,7 +134,7 @@ func (s *service) GetByID(ctx context.Context, id uuid.UUID) (*FileResponse, err
 	file, err := s.fileRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperror.NotFound("file not found")
+			return nil, apperror.NotFoundI18n("file.not_found")
 		}
 		return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to get file")
 	}
@@ -115,17 +143,7 @@ func (s *service) GetByID(ctx context.Context, id uuid.UUID) (*FileResponse, err
 }
 
 func (s *service) ListByUserID(ctx context.Context, userID uuid.UUID, req *ListFilesRequest) (*ListFilesResponse, error) {
-	if req.Page == 0 {
-		req.Page = 1
-	}
-	if req.PageSize == 0 {
-		req.PageSize = 10
-	}
-
-	offset := int32((req.Page - 1) * req.PageSize)
-	limit := int32(req.PageSize)
-
-	files, err := s.fileRepo.ListByUserID(ctx, userID, limit, offset)
+	files, err := s.fileRepo.ListByUserID(ctx, userID, req.Limit(), req.Offset())
 	if err != nil {
 		return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to list files")
 	}
@@ -135,32 +153,14 @@ func (s *service) ListByUserID(ctx context.Context, userID uuid.UUID, req *ListF
 		return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to count files")
 	}
 
-	totalPages := int(total) / req.PageSize
-	if int(total)%req.PageSize > 0 {
-		totalPages++
-	}
-
 	return &ListFilesResponse{
-		Files:      ToFileResponses(files),
-		Total:      total,
-		Page:       req.Page,
-		PageSize:   req.PageSize,
-		TotalPages: totalPages,
+		Files: ToFileResponses(files),
+		Meta:  pagination.NewResult(total, &req.Request),
 	}, nil
 }
 
 func (s *service) List(ctx context.Context, req *ListFilesRequest) (*ListFilesResponse, error) {
-	if req.Page == 0 {
-		req.Page = 1
-	}
-	if req.PageSize == 0 {
-		req.PageSize = 10
-	}
-
-	offset := int32((req.Page - 1) * req.PageSize)
-	limit := int32(req.PageSize)
-
-	files, err := s.fileRepo.List(ctx, limit, offset)
+	files, err := s.fileRepo.List(ctx, req.Limit(), req.Offset())
 	if err != nil {
 		return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to list files")
 	}
@@ -170,17 +170,9 @@ func (s *service) List(ctx context.Context, req *ListFilesRequest) (*ListFilesRe
 		return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to count files")
 	}
 
-	totalPages := int(total) / req.PageSize
-	if int(total)%req.PageSize > 0 {
-		totalPages++
-	}
-
 	return &ListFilesResponse{
-		Files:      ToFileResponses(files),
-		Total:      total,
-		Page:       req.Page,
-		PageSize:   req.PageSize,
-		TotalPages: totalPages,
+		Files: ToFileResponses(files),
+		Meta:  pagination.NewResult(total, &req.Request),
 	}, nil
 }
 
@@ -188,22 +180,41 @@ func (s *service) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID, is
 	file, err := s.fileRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return apperror.NotFound("file not found")
+			return apperror.NotFoundI18n("file.not_found")
 		}
 		return apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to get file")
 	}
 
 	if file.UserID != userID && !isAdmin {
-		return apperror.Forbidden("you can only delete your own files")
+		return apperror.ForbiddenI18n("file.delete_own_only")
 	}
 
+	// Begin transaction
+	tx, err := s.fileRepo.BeginTx(ctx)
+	if err != nil {
+		return apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to begin transaction")
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
+	// Delete DB record within transaction first
+	if err = s.fileRepo.DeleteTx(ctx, tx, id); err != nil {
+		return apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to delete file record")
+	}
+
+	// Delete from storage
 	storageDriver := s.storageManager.Get(file.StorageDriver)
-	if err := storageDriver.Delete(ctx, file.StoragePath); err != nil {
+	if err = storageDriver.Delete(ctx, file.StoragePath); err != nil {
+		// Rollback DB deletion if storage delete fails
 		return apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to delete file from storage")
 	}
 
-	if err := s.fileRepo.Delete(ctx, id); err != nil {
-		return apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to delete file record")
+	// Commit transaction
+	if err = tx.Commit(ctx); err != nil {
+		return apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to commit transaction")
 	}
 
 	return nil

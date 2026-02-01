@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	"backend-gin/internal/domain/entity"
+	"backend-gin/pkg/pagination"
 )
 
 type CreateUserRequest struct {
@@ -28,16 +29,12 @@ type UserResponse struct {
 }
 
 type ListUsersRequest struct {
-	Page     int `form:"page" binding:"omitempty,min=1"`
-	PageSize int `form:"page_size" binding:"omitempty,min=1,max=100"`
+	pagination.Request
 }
 
 type ListUsersResponse struct {
-	Users      []*UserResponse `json:"users"`
-	Total      int64           `json:"total"`
-	Page       int             `json:"page"`
-	PageSize   int             `json:"page_size"`
-	TotalPages int             `json:"total_pages"`
+	Users []*UserResponse    `json:"users"`
+	Meta  *pagination.Result `json:"meta"`
 }
 
 func ToUserResponse(user *entity.User) *UserResponse {

@@ -7,11 +7,17 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 
 	"backend-gin/internal/domain/entity"
 	"backend-gin/internal/domain/repository"
 	"backend-gin/pkg/apperror"
+	"backend-gin/pkg/pagination"
+)
+
+const (
+	pgUniqueViolation = "23505"
 )
 
 type Service interface {
@@ -23,25 +29,29 @@ type Service interface {
 }
 
 type service struct {
-	userRepo repository.UserRepository
+	userRepo   repository.UserRepository
+	bcryptCost int
 }
 
-func NewService(userRepo repository.UserRepository) Service {
+func NewService(userRepo repository.UserRepository, bcryptCost int) Service {
 	return &service{
-		userRepo: userRepo,
+		userRepo:   userRepo,
+		bcryptCost: bcryptCost,
 	}
 }
 
 func (s *service) Create(ctx context.Context, req *CreateUserRequest) (*UserResponse, error) {
+	// Early check for better UX (avoid bcrypt cost if email exists)
+	// Note: This check alone is NOT sufficient due to race conditions
 	existingUser, err := s.userRepo.GetByEmail(ctx, req.Email)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to check existing user")
 	}
 	if existingUser != nil {
-		return nil, apperror.Conflict("email already exists")
+		return nil, apperror.ConflictI18n("user.email_exists")
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), s.bcryptCost)
 	if err != nil {
 		return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to hash password")
 	}
@@ -54,6 +64,11 @@ func (s *service) Create(ctx context.Context, req *CreateUserRequest) (*UserResp
 
 	createdUser, err := s.userRepo.Create(ctx, user)
 	if err != nil {
+		// Handle unique constraint violation (race condition protection)
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgUniqueViolation {
+			return nil, apperror.ConflictI18n("user.email_exists")
+		}
 		return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to create user")
 	}
 
@@ -64,7 +79,7 @@ func (s *service) GetByID(ctx context.Context, id uuid.UUID) (*UserResponse, err
 	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperror.NotFound("user not found")
+			return nil, apperror.NotFoundI18n("user.not_found")
 		}
 		return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to get user")
 	}
@@ -73,17 +88,7 @@ func (s *service) GetByID(ctx context.Context, id uuid.UUID) (*UserResponse, err
 }
 
 func (s *service) List(ctx context.Context, req *ListUsersRequest) (*ListUsersResponse, error) {
-	if req.Page == 0 {
-		req.Page = 1
-	}
-	if req.PageSize == 0 {
-		req.PageSize = 10
-	}
-
-	offset := int32((req.Page - 1) * req.PageSize)
-	limit := int32(req.PageSize)
-
-	users, err := s.userRepo.List(ctx, limit, offset)
+	users, err := s.userRepo.List(ctx, req.Limit(), req.Offset())
 	if err != nil {
 		return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to list users")
 	}
@@ -93,17 +98,9 @@ func (s *service) List(ctx context.Context, req *ListUsersRequest) (*ListUsersRe
 		return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to count users")
 	}
 
-	totalPages := int(total) / req.PageSize
-	if int(total)%req.PageSize > 0 {
-		totalPages++
-	}
-
 	return &ListUsersResponse{
-		Users:      ToUserResponses(users),
-		Total:      total,
-		Page:       req.Page,
-		PageSize:   req.PageSize,
-		TotalPages: totalPages,
+		Users: ToUserResponses(users),
+		Meta:  pagination.NewResult(total, &req.Request),
 	}, nil
 }
 
@@ -111,7 +108,7 @@ func (s *service) Update(ctx context.Context, id uuid.UUID, req *UpdateUserReque
 	existingUser, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperror.NotFound("user not found")
+			return nil, apperror.NotFoundI18n("user.not_found")
 		}
 		return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to get user")
 	}
@@ -130,7 +127,7 @@ func (s *service) Delete(ctx context.Context, id uuid.UUID) error {
 	_, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return apperror.NotFound("user not found")
+			return apperror.NotFoundI18n("user.not_found")
 		}
 		return apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to get user")
 	}

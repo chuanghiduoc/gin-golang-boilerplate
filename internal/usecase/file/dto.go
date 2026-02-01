@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	"backend-gin/internal/domain/entity"
+	"backend-gin/pkg/pagination"
 )
 
 type UploadRequest struct {
@@ -26,16 +27,12 @@ type FileResponse struct {
 }
 
 type ListFilesRequest struct {
-	Page     int `form:"page" binding:"omitempty,min=1"`
-	PageSize int `form:"page_size" binding:"omitempty,min=1,max=100"`
+	pagination.Request
 }
 
 type ListFilesResponse struct {
-	Files      []*FileResponse `json:"files"`
-	Total      int64           `json:"total"`
-	Page       int             `json:"page"`
-	PageSize   int             `json:"page_size"`
-	TotalPages int             `json:"total_pages"`
+	Files []*FileResponse    `json:"files"`
+	Meta  *pagination.Result `json:"meta"`
 }
 
 func ToFileResponse(file *entity.File) *FileResponse {

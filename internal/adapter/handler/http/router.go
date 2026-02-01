@@ -94,9 +94,13 @@ func (r *Router) Setup() *gin.Engine {
 		})
 	})
 
-	// Swagger - always enabled (use GIN_MODE=release in production to disable)
-	r.engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-	r.log.Info("swagger enabled", "url", "/swagger/index.html")
+	// Swagger - disabled in production (release mode)
+	if r.mode != "release" {
+		r.engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+		r.log.Info("swagger enabled", "url", "/swagger/index.html")
+	} else {
+		r.log.Info("swagger disabled in production mode")
+	}
 
 	r.engine.Static("/uploads", r.uploadPath)
 

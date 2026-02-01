@@ -105,7 +105,7 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 		return
 	}
 
-	response.Paginated(c, result.Users, result.Total, result.Page, result.PageSize, result.TotalPages)
+	response.PaginatedWithMeta(c, result.Users, result.Meta)
 }
 
 // CreateUser godoc

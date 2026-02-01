@@ -45,13 +45,15 @@ type service struct {
 	userRepo    repository.UserRepository
 	redisClient *redis.Client
 	jwtConfig   config.JWTConfig
+	bcryptCost  int
 }
 
-func NewService(userRepo repository.UserRepository, redisClient *redis.Client, jwtConfig config.JWTConfig) Service {
+func NewService(userRepo repository.UserRepository, redisClient *redis.Client, jwtConfig config.JWTConfig, securityConfig config.SecurityConfig) Service {
 	return &service{
 		userRepo:    userRepo,
 		redisClient: redisClient,
 		jwtConfig:   jwtConfig,
+		bcryptCost:  securityConfig.BcryptCost,
 	}
 }
 
@@ -64,7 +66,7 @@ func (s *service) Register(ctx context.Context, req *RegisterRequest) (*AuthResp
 		return nil, apperror.Conflict("email already registered")
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), s.bcryptCost)
 	if err != nil {
 		return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to hash password")
 	}

@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -8,6 +10,44 @@ import (
 
 	"backend-gin/internal/infrastructure/logger"
 )
+
+var sensitiveParams = map[string]bool{
+	"token":         true,
+	"access_token":  true,
+	"refresh_token": true,
+	"api_key":       true,
+	"apikey":        true,
+	"password":      true,
+	"secret":        true,
+	"authorization": true,
+	"key":           true,
+	"session":       true,
+	"session_id":    true,
+	"sessionid":     true,
+	"auth":          true,
+	"credential":    true,
+	"credentials":   true,
+}
+
+// sanitizeQuery redacts sensitive parameters from query string
+func sanitizeQuery(rawQuery string) string {
+	if rawQuery == "" {
+		return ""
+	}
+
+	values, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		return rawQuery
+	}
+
+	for key := range values {
+		if sensitiveParams[strings.ToLower(key)] {
+			values.Set(key, "[REDACTED]")
+		}
+	}
+
+	return values.Encode()
+}
 
 func Logger(log *logger.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -17,7 +57,7 @@ func Logger(log *logger.Logger) gin.HandlerFunc {
 
 		start := time.Now()
 		path := c.Request.URL.Path
-		query := c.Request.URL.RawQuery
+		query := sanitizeQuery(c.Request.URL.RawQuery)
 
 		c.Next()
 

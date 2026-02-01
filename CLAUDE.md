@@ -42,7 +42,9 @@ backend-gin/
 │       ├── logger/              # Structured logging
 │       └── server/              # Graceful shutdown
 ├── pkg/                         # Public packages
-│   └── apperror/                # Application errors
+│   ├── apperror/                # Application errors (with i18n support)
+│   ├── pagination/              # Reusable pagination helpers
+│   └── filetype/                # File content validation (magic bytes)
 ├── db/                          # Database files
 │   ├── migrations/              # SQL migrations
 │   ├── queries/                 # SQLC queries
@@ -93,9 +95,15 @@ Dependencies point INWARD only:
 
 ### Error Handling
 ```go
-// Use apperror for application errors
-return nil, apperror.NotFound("user not found")
-return nil, apperror.Wrap(err, 500, "failed to create user")
+// Use apperror with i18n support (preferred)
+return nil, apperror.NotFoundI18n("user.not_found")
+return nil, apperror.BadRequestI18nWithParams("file.content_mismatch", map[string]string{
+    "claimed": "image/jpeg",
+    "detected": "text/plain",
+})
+
+// Use apperror with hardcoded messages (for internal errors)
+return nil, apperror.Wrap(err, http.StatusInternalServerError, apperror.CodeInternalError, "failed to create user")
 
 // Check error type
 if apperror.IsNotFound(err) {
@@ -254,10 +262,21 @@ make release-major    # Release major version
 
 Required:
 - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
-- `JWT_SECRET`
+- `JWT_SECRET` (must be changed from default in production, min 32 chars)
 
 Optional:
 - `SERVER_HOST` (default: 0.0.0.0)
 - `SERVER_PORT` (default: 8080)
-- `GIN_MODE` (default: debug)
+- `GIN_MODE` (default: debug) - use "release" for production
 - `LOG_LEVEL` (default: debug)
+- `BCRYPT_COST` (default: 10, range: 4-31)
+- `FILE_MAX_SIZE` (default: 10MB in bytes)
+- `FILE_ALLOWED_TYPES` (comma-separated MIME types)
+
+## Security Features
+
+- JWT secret validation in production mode
+- Swagger automatically disabled in release mode
+- File content validation using magic bytes (prevents MIME spoofing)
+- Race condition protection for user creation (DB unique constraint)
+- Sensitive data redaction in request logs (tokens, passwords, API keys)

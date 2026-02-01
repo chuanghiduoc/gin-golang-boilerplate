@@ -129,7 +129,7 @@ func (h *FileHandler) ListMyFiles(c *gin.Context) {
 		return
 	}
 
-	response.Paginated(c, result.Files, result.Total, result.Page, result.PageSize, result.TotalPages)
+	response.PaginatedWithMeta(c, result.Files, result.Meta)
 }
 
 // ListAllFiles godoc
@@ -158,7 +158,7 @@ func (h *FileHandler) ListAllFiles(c *gin.Context) {
 		return
 	}
 
-	response.Paginated(c, result.Files, result.Total, result.Page, result.PageSize, result.TotalPages)
+	response.PaginatedWithMeta(c, result.Files, result.Meta)
 }
 
 // DeleteFile godoc

@@ -45,6 +45,11 @@ import (
 func main() {
 	cfg := config.Load()
 
+	// Validate configuration (will fail fast if security issues in production)
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("configuration error: %v", err)
+	}
+
 	appLogger := logger.New(cfg.Log.Level)
 
 	if err := i18n.Init(""); err != nil {
@@ -141,14 +146,14 @@ func initializeApp(pool *pgxpool.Pool, cfg *config.Config, log *logger.Logger, s
 		rClient = redisClient.Client()
 	}
 
-	authService := auth.NewService(userRepo, rClient, cfg.JWT)
-	userService := user.NewService(userRepo)
-	fileService := file.NewService(fileRepo, storageManager)
+	authService := auth.NewService(userRepo, rClient, cfg.JWT, cfg.Security)
+	userService := user.NewService(userRepo, cfg.Security.BcryptCost)
+	fileService := file.NewService(fileRepo, storageManager, cfg.File)
 
 	authHandler := httphandler.NewAuthHandler(authService)
 	userHandler := httphandler.NewUserHandler(userService)
 	fileHandler := httphandler.NewFileHandler(fileService)
-	healthHandler := httphandler.NewHealthHandler(pool)
+	healthHandler := httphandler.NewHealthHandler(pool, redisClient)
 
 	router := httphandler.NewRouter(
 		authHandler,

@@ -87,7 +87,7 @@ func TestService_Register_Success(t *testing.T) {
 		RefreshTokenLength: 64,
 	}
 
-	svc := NewService(mockRepo, nil, jwtConfig)
+	svc := NewService(mockRepo, nil, jwtConfig, config.SecurityConfig{BcryptCost: 10})
 
 	ctx := context.Background()
 	req := &RegisterRequest{
@@ -126,7 +126,7 @@ func TestService_Register_EmailExists(t *testing.T) {
 		AccessExpiration: 15 * time.Minute,
 	}
 
-	svc := NewService(mockRepo, nil, jwtConfig)
+	svc := NewService(mockRepo, nil, jwtConfig, config.SecurityConfig{BcryptCost: 10})
 
 	ctx := context.Background()
 	req := &RegisterRequest{
@@ -159,7 +159,7 @@ func TestService_Login_Success(t *testing.T) {
 		RefreshTokenLength: 64,
 	}
 
-	svc := NewService(mockRepo, nil, jwtConfig)
+	svc := NewService(mockRepo, nil, jwtConfig, config.SecurityConfig{BcryptCost: 10})
 
 	ctx := context.Background()
 	password := "password123"
@@ -197,7 +197,7 @@ func TestService_Login_InvalidEmail(t *testing.T) {
 		AccessExpiration: 15 * time.Minute,
 	}
 
-	svc := NewService(mockRepo, nil, jwtConfig)
+	svc := NewService(mockRepo, nil, jwtConfig, config.SecurityConfig{BcryptCost: 10})
 
 	ctx := context.Background()
 	req := &LoginRequest{
@@ -222,7 +222,7 @@ func TestService_Login_InvalidPassword(t *testing.T) {
 		AccessExpiration: 15 * time.Minute,
 	}
 
-	svc := NewService(mockRepo, nil, jwtConfig)
+	svc := NewService(mockRepo, nil, jwtConfig, config.SecurityConfig{BcryptCost: 10})
 
 	ctx := context.Background()
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("correct_password"), bcrypt.DefaultCost)
@@ -256,7 +256,7 @@ func TestService_ValidateToken_Success(t *testing.T) {
 		AccessExpiration: 15 * time.Minute,
 	}
 
-	svc := NewService(mockRepo, nil, jwtConfig).(*service)
+	svc := NewService(mockRepo, nil, jwtConfig, config.SecurityConfig{BcryptCost: 10}).(*service)
 
 	user := &entity.User{
 		ID:    uuid.New(),
@@ -284,7 +284,7 @@ func TestService_ValidateToken_Invalid(t *testing.T) {
 		AccessExpiration: 15 * time.Minute,
 	}
 
-	svc := NewService(mockRepo, nil, jwtConfig)
+	svc := NewService(mockRepo, nil, jwtConfig, config.SecurityConfig{BcryptCost: 10})
 
 	claims, err := svc.ValidateToken("invalid-token")
 	assert.Error(t, err)
@@ -298,7 +298,7 @@ func TestService_ValidateToken_Expired(t *testing.T) {
 		AccessExpiration: -1 * time.Minute,
 	}
 
-	svc := NewService(mockRepo, nil, jwtConfig).(*service)
+	svc := NewService(mockRepo, nil, jwtConfig, config.SecurityConfig{BcryptCost: 10}).(*service)
 
 	user := &entity.User{
 		ID:    uuid.New(),
@@ -322,7 +322,7 @@ func TestService_Register_RepositoryError(t *testing.T) {
 		AccessExpiration: 15 * time.Minute,
 	}
 
-	svc := NewService(mockRepo, nil, jwtConfig)
+	svc := NewService(mockRepo, nil, jwtConfig, config.SecurityConfig{BcryptCost: 10})
 
 	ctx := context.Background()
 	req := &RegisterRequest{

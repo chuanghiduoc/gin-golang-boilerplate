@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"backend-gin/internal/domain/entity"
 )
@@ -17,4 +18,9 @@ type FileRepository interface {
 	DeleteByUserID(ctx context.Context, userID uuid.UUID) error
 	CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error)
 	Count(ctx context.Context) (int64, error)
+
+	// Transaction methods
+	BeginTx(ctx context.Context) (pgx.Tx, error)
+	CreateTx(ctx context.Context, tx pgx.Tx, file *entity.File) (*entity.File, error)
+	DeleteTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) error
 }

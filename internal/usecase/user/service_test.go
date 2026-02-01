@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"backend-gin/internal/domain/entity"
+	"backend-gin/pkg/pagination"
 )
 
 type MockUserRepository struct {
@@ -77,7 +78,7 @@ func (m *MockUserRepository) Count(ctx context.Context) (int64, error) {
 
 func TestService_GetByID_Success(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, 10)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -102,7 +103,7 @@ func TestService_GetByID_Success(t *testing.T) {
 
 func TestService_GetByID_NotFound(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, 10)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -119,7 +120,7 @@ func TestService_GetByID_NotFound(t *testing.T) {
 
 func TestService_Create_Success(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, 10)
 
 	ctx := context.Background()
 	req := &CreateUserRequest{
@@ -150,7 +151,7 @@ func TestService_Create_Success(t *testing.T) {
 
 func TestService_Create_EmailExists(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, 10)
 
 	ctx := context.Background()
 	req := &CreateUserRequest{
@@ -169,14 +170,14 @@ func TestService_Create_EmailExists(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "email already exists")
+	assert.Contains(t, err.Error(), "user.email_exists")
 
 	mockRepo.AssertExpectations(t)
 }
 
 func TestService_Update_Success(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, 10)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -211,7 +212,7 @@ func TestService_Update_Success(t *testing.T) {
 
 func TestService_Update_NotFound(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, 10)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -231,7 +232,7 @@ func TestService_Update_NotFound(t *testing.T) {
 
 func TestService_Delete_Success(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, 10)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -253,7 +254,7 @@ func TestService_Delete_Success(t *testing.T) {
 
 func TestService_Delete_NotFound(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, 10)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -269,12 +270,11 @@ func TestService_Delete_NotFound(t *testing.T) {
 
 func TestService_List_Success(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, 10)
 
 	ctx := context.Background()
 	req := &ListUsersRequest{
-		Page:     1,
-		PageSize: 10,
+		Request: pagination.Request{Page: 1, PageSize: 10},
 	}
 
 	users := []*entity.User{
@@ -291,19 +291,18 @@ func TestService_List_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Len(t, result.Users, 2)
-	assert.Equal(t, total, result.Total)
+	assert.Equal(t, total, result.Meta.Total)
 
 	mockRepo.AssertExpectations(t)
 }
 
 func TestService_List_RepositoryError(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, 10)
 
 	ctx := context.Background()
 	req := &ListUsersRequest{
-		Page:     1,
-		PageSize: 10,
+		Request: pagination.Request{Page: 1, PageSize: 10},
 	}
 
 	mockRepo.On("List", ctx, int32(10), int32(0)).Return(nil, errors.New("database error"))
@@ -318,7 +317,7 @@ func TestService_List_RepositoryError(t *testing.T) {
 
 func TestService_List_DefaultPagination(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, 10)
 
 	ctx := context.Background()
 	req := &ListUsersRequest{}
@@ -333,8 +332,8 @@ func TestService_List_DefaultPagination(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
-	assert.Equal(t, 1, result.Page)
-	assert.Equal(t, 10, result.PageSize)
+	assert.Equal(t, 1, result.Meta.Page)
+	assert.Equal(t, 10, result.Meta.PageSize)
 
 	mockRepo.AssertExpectations(t)
 }

@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -206,4 +207,140 @@ func TestI18n_QueryParameter(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "vi", w.Body.String())
+}
+
+func TestSanitizeQuery(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected map[string]string
+	}{
+		{
+			name:     "empty query",
+			input:    "",
+			expected: map[string]string{},
+		},
+		{
+			name:  "no sensitive params",
+			input: "page=1&limit=10&search=test",
+			expected: map[string]string{
+				"page":   "1",
+				"limit":  "10",
+				"search": "test",
+			},
+		},
+		{
+			name:  "token param",
+			input: "token=secret123&page=1",
+			expected: map[string]string{
+				"token": "[REDACTED]",
+				"page":  "1",
+			},
+		},
+		{
+			name:  "access_token param",
+			input: "access_token=abc123",
+			expected: map[string]string{
+				"access_token": "[REDACTED]",
+			},
+		},
+		{
+			name:  "password param",
+			input: "user=admin&password=secret",
+			expected: map[string]string{
+				"user":     "admin",
+				"password": "[REDACTED]",
+			},
+		},
+		{
+			name:  "api_key param",
+			input: "api_key=key123&format=json",
+			expected: map[string]string{
+				"api_key": "[REDACTED]",
+				"format":  "json",
+			},
+		},
+		{
+			name:  "mixed case sensitivity",
+			input: "TOKEN=secret&Password=pass&API_KEY=key",
+			expected: map[string]string{
+				"TOKEN":    "[REDACTED]",
+				"Password": "[REDACTED]",
+				"API_KEY":  "[REDACTED]",
+			},
+		},
+		{
+			name:  "multiple sensitive params",
+			input: "token=t1&secret=s1&key=k1&session=sess1",
+			expected: map[string]string{
+				"token":   "[REDACTED]",
+				"secret":  "[REDACTED]",
+				"key":     "[REDACTED]",
+				"session": "[REDACTED]",
+			},
+		},
+		{
+			name:  "refresh_token param",
+			input: "refresh_token=ref123",
+			expected: map[string]string{
+				"refresh_token": "[REDACTED]",
+			},
+		},
+		{
+			name:  "authorization param",
+			input: "authorization=Bearer+token123",
+			expected: map[string]string{
+				"authorization": "[REDACTED]",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeQuery(tt.input)
+
+			if tt.input == "" {
+				assert.Empty(t, result)
+				return
+			}
+
+			// Parse the result using url.ParseQuery to handle URL encoding
+			parsed, err := url.ParseQuery(result)
+			assert.NoError(t, err)
+
+			for key, expectedValue := range tt.expected {
+				// Case-insensitive key lookup
+				var found bool
+				for k, values := range parsed {
+					if equalFoldKey(k, key) {
+						if len(values) > 0 {
+							assert.Equal(t, expectedValue, values[0], "Key %s should have value %s", key, expectedValue)
+						}
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "Key %s should exist in result", key)
+			}
+		})
+	}
+}
+
+func equalFoldKey(a, b string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := 0; i < len(a); i++ {
+		ca, cb := a[i], b[i]
+		if ca >= 'A' && ca <= 'Z' {
+			ca += 'a' - 'A'
+		}
+		if cb >= 'A' && cb <= 'Z' {
+			cb += 'a' - 'A'
+		}
+		if ca != cb {
+			return false
+		}
+	}
+	return true
 }

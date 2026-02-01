@@ -26,6 +26,7 @@
     "deleted": "User deleted successfully",
     "email_required": "Email is required",
     "email_invalid": "Invalid email format",
+    "email_exists": "Email already exists",
     "name_required": "Name is required",
     "name_min_length": "Name must be at least 2 characters",
     "name_max_length": "Name must not exceed 100 characters"
@@ -41,7 +42,9 @@
     "deleted": "File deleted successfully",
     "invalid_type": "Invalid file type",
     "size_exceeded": "File size exceeds the limit",
-    "empty_file": "File is empty"
+    "empty_file": "File is empty",
+    "content_mismatch": "File content does not match declared type (claimed: {{claimed}}, detected: {{detected}})",
+    "delete_own_only": "You can only delete your own files"
   },
   "validation": {
     "required": "{{field}} is required",

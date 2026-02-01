@@ -28,11 +28,13 @@ type FieldError struct {
 
 // AppError represents an application error with enterprise features
 type AppError struct {
-	HTTPCode  int           `json:"-"`
-	ErrorCode string        `json:"code"`
-	Message   string        `json:"message"`
-	Details   []*FieldError `json:"details,omitempty"`
-	Err       error         `json:"-"`
+	HTTPCode   int               `json:"-"`
+	ErrorCode  string            `json:"code"`
+	Message    string            `json:"message"`
+	Details    []*FieldError     `json:"details,omitempty"`
+	Err        error             `json:"-"`
+	I18nKey    string            `json:"-"` // i18n translation key
+	I18nParams map[string]string `json:"-"` // i18n interpolation params
 }
 
 func (e *AppError) Error() string {
@@ -128,6 +130,79 @@ func ValidationWithDetails(message string, details ...*FieldError) *AppError {
 
 func TooManyRequests(message string) *AppError {
 	return New(http.StatusTooManyRequests, CodeTooManyRequests, message)
+}
+
+// I18n constructor functions - use i18n key instead of hardcoded message
+// The actual translation happens in the response layer
+
+func BadRequestI18n(i18nKey string) *AppError {
+	return &AppError{
+		HTTPCode:  http.StatusBadRequest,
+		ErrorCode: CodeBadRequest,
+		Message:   i18nKey, // Will be translated in response layer
+		I18nKey:   i18nKey,
+	}
+}
+
+func BadRequestI18nWithParams(i18nKey string, params map[string]string) *AppError {
+	return &AppError{
+		HTTPCode:   http.StatusBadRequest,
+		ErrorCode:  CodeBadRequest,
+		Message:    i18nKey,
+		I18nKey:    i18nKey,
+		I18nParams: params,
+	}
+}
+
+func NotFoundI18n(i18nKey string) *AppError {
+	return &AppError{
+		HTTPCode:  http.StatusNotFound,
+		ErrorCode: CodeNotFound,
+		Message:   i18nKey,
+		I18nKey:   i18nKey,
+	}
+}
+
+func ConflictI18n(i18nKey string) *AppError {
+	return &AppError{
+		HTTPCode:  http.StatusConflict,
+		ErrorCode: CodeConflict,
+		Message:   i18nKey,
+		I18nKey:   i18nKey,
+	}
+}
+
+func ForbiddenI18n(i18nKey string) *AppError {
+	return &AppError{
+		HTTPCode:  http.StatusForbidden,
+		ErrorCode: CodeForbidden,
+		Message:   i18nKey,
+		I18nKey:   i18nKey,
+	}
+}
+
+func UnauthorizedI18n(i18nKey string) *AppError {
+	return &AppError{
+		HTTPCode:  http.StatusUnauthorized,
+		ErrorCode: CodeUnauthorized,
+		Message:   i18nKey,
+		I18nKey:   i18nKey,
+	}
+}
+
+// HasI18nKey checks if error has i18n key for translation
+func (e *AppError) HasI18nKey() bool {
+	return e.I18nKey != ""
+}
+
+// GetI18nKey returns i18n key
+func (e *AppError) GetI18nKey() string {
+	return e.I18nKey
+}
+
+// GetI18nParams returns i18n params
+func (e *AppError) GetI18nParams() map[string]string {
+	return e.I18nParams
 }
 
 // Type check functions

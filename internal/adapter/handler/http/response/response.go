@@ -12,6 +12,7 @@ import (
 	httpctx "backend-gin/internal/adapter/handler/http/context"
 	"backend-gin/internal/infrastructure/i18n"
 	"backend-gin/pkg/apperror"
+	"backend-gin/pkg/pagination"
 )
 
 // Meta contains request metadata for tracing
@@ -123,6 +124,23 @@ func Paginated(c *gin.Context, data any, total int64, page, pageSize, totalPages
 	})
 }
 
+// PaginatedWithMeta sends a paginated response using pagination.Result
+func PaginatedWithMeta(c *gin.Context, data any, meta *pagination.Result) {
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Success: true,
+		Data:    data,
+		Pagination: Pagination{
+			Total:      meta.Total,
+			Page:       meta.Page,
+			PageSize:   meta.PageSize,
+			TotalPages: meta.TotalPages,
+			HasNext:    meta.Page < meta.TotalPages,
+			HasPrev:    meta.Page > 1,
+		},
+		Meta: buildMeta(c),
+	})
+}
+
 // Err sends an error response based on the error type
 func Err(c *gin.Context, err error) {
 	var appErr *apperror.AppError
@@ -136,11 +154,22 @@ func Err(c *gin.Context, err error) {
 			})
 		}
 
+		// Translate message if it has i18n key
+		message := appErr.Message
+		if appErr.HasI18nKey() {
+			t := getTranslator(c)
+			if appErr.GetI18nParams() != nil {
+				message = t.T(appErr.GetI18nKey(), appErr.GetI18nParams())
+			} else {
+				message = t.T(appErr.GetI18nKey())
+			}
+		}
+
 		c.JSON(appErr.HTTPCode, Response{
 			Success: false,
 			Error: &Error{
 				Code:    appErr.ErrorCode,
-				Message: appErr.Message,
+				Message: message,
 				Details: details,
 			},
 			Meta: buildMeta(c),
@@ -148,11 +177,12 @@ func Err(c *gin.Context, err error) {
 		return
 	}
 
+	t := getTranslator(c)
 	c.JSON(http.StatusInternalServerError, Response{
 		Success: false,
 		Error: &Error{
 			Code:    apperror.CodeInternalError,
-			Message: "internal server error",
+			Message: t.T("common.internal_error"),
 		},
 		Meta: buildMeta(c),
 	})
