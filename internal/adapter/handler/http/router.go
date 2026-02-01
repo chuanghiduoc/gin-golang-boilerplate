@@ -81,10 +81,19 @@ func (r *Router) Setup() *gin.Engine {
 
 	r.engine.GET("/health", r.healthHandler.Health)
 
-	if r.mode == gin.DebugMode {
-		r.engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-		r.log.Info("swagger enabled", "url", "/swagger/index.html")
-	}
+	// Root endpoint - show API info
+	r.engine.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"name":    "Backend Gin API",
+			"version": "1.0.0",
+			"health":  "/health",
+			"docs":    "/swagger/index.html",
+		})
+	})
+
+	// Swagger - always enabled (use GIN_MODE=release in production to disable)
+	r.engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.log.Info("swagger enabled", "url", "/swagger/index.html")
 
 	r.engine.Static("/uploads", r.uploadPath)
 

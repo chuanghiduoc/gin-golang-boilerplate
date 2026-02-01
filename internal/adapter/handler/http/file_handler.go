@@ -27,7 +27,7 @@ func NewFileHandler(fileService file.Service) *FileHandler {
 // @Accept multipart/form-data
 // @Produce json
 // @Security BearerAuth
-// @Param file formance formData file true "File to upload"
+// @Param file formData file true "File to upload"
 // @Param path formData string false "Storage path"
 // @Success 201 {object} response.Response{data=file.FileResponse}
 // @Failure 400 {object} response.Response

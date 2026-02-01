@@ -36,6 +36,9 @@ func Security() gin.HandlerFunc {
 
 func SecurityWithConfig(cfg SecurityConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Skip strict CSP for Swagger UI (needs inline styles/scripts)
+		isSwagger := len(c.Request.URL.Path) >= 8 && c.Request.URL.Path[:8] == "/swagger"
+
 		if cfg.XSSProtection != "" {
 			c.Header("X-XSS-Protection", cfg.XSSProtection)
 		}
@@ -57,7 +60,12 @@ func SecurityWithConfig(cfg SecurityConfig) gin.HandlerFunc {
 		}
 
 		if cfg.ContentSecurityPolicy != "" {
-			c.Header("Content-Security-Policy", cfg.ContentSecurityPolicy)
+			if isSwagger {
+				// Relaxed CSP for Swagger UI
+				c.Header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:")
+			} else {
+				c.Header("Content-Security-Policy", cfg.ContentSecurityPolicy)
+			}
 		}
 
 		if cfg.ReferrerPolicy != "" {

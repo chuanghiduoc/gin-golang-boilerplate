@@ -1,3 +1,5 @@
+![gin-golang-boilerplate](https://socialify.git.ci/chuanghiduoc/gin-golang-boilerplate/image?font=Inter&forks=1&issues=1&language=1&name=1&owner=1&pattern=Plus&pulls=1&stargazers=1&theme=Auto)
+
 # Backend Gin
 
 Production-ready Gin boilerplate with Clean Architecture, PostgreSQL, Redis, JWT Auth, and Docker.
